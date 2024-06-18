@@ -5,6 +5,7 @@ const path = require("path");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const multer = require("multer"); // Import multer
 
 // Load environment variables from .env file
 dotenv.config();
@@ -15,6 +16,18 @@ const dbPath = path.join(__dirname, "todos.db");
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// Multer storage configuration
+const uploadDir = path.join(__dirname, "uploads");
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname); // Use original filename; adjust as needed
+  },
+});
+const upload = multer({ storage: storage });
 
 // Initialize the database and server
 const initializeDBAndServer = async () => {
@@ -95,10 +108,30 @@ const initializeDBAndServer = async () => {
         res.status(500).send("Server Error");
       }
     });
+
+    // Route to handle file upload
+    app.post("/upload", upload.single("pdf"), (req, res) => {
+      res.send("File uploaded successfully.");
+    });
   } catch (e) {
     console.error(`DB Error: ${e.message}`);
     process.exit(1);
   }
 };
+
+app.get("/download/:filename", (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(uploadDir, filename);
+
+  // Check if the file exists
+  if (fs.existsSync(filePath)) {
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+    res.setHeader("Content-Type", "application/pdf");
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } else {
+    res.status(404).send("File not found");
+  }
+});
 
 initializeDBAndServer();
