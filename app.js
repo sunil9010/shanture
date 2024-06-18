@@ -41,7 +41,7 @@ const initializeDBAndServer = async () => {
       CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description TEXT NOT NULL,
-        completed BOOLEAN NOT NULL DEFAULT FALSE
+        completed BOOLEAN NOT NULL DEFAULT 1
       );
     `);
 
@@ -66,7 +66,7 @@ const initializeDBAndServer = async () => {
       }
     });
 
-    app.post("/tasks/:id", async (req, res) => {
+    app.post("/tasks", async (req, res) => {
       const { description } = req.body;
       try {
         const result = await req.db.run(
@@ -86,9 +86,10 @@ const initializeDBAndServer = async () => {
     app.put("/tasks/:id", async (req, res) => {
       const { id } = req.params;
       const { completed } = req.body;
+      const completedValue = completed ? 1 : 0;
       try {
         await req.db.run("UPDATE tasks SET completed = ? WHERE id = ?", [
-          completed,
+          completedValue,
           id,
         ]);
         res.sendStatus(200);
