@@ -4,6 +4,10 @@ const sqlite3 = require("sqlite3");
 const path = require("path");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const dotenv = require("dotenv");
+
+// Load environment variables from .env file
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,11 +36,13 @@ const initializeDBAndServer = async () => {
       console.log(`Server Running at http://localhost:${PORT}/`);
     });
 
+    // Middleware to attach db to req object
     app.use((req, res, next) => {
       req.db = db;
       next();
     });
 
+    // Define routes
     app.get("/tasks", async (req, res) => {
       try {
         const tasks = await req.db.all("SELECT * FROM tasks");
