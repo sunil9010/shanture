@@ -2,23 +2,34 @@ GET http://localhost:3000/tasks
 
 ###
 
-POST http://localhost:3000/tasks
+POST http://localhost:3000/tasks/upload-pdf
 Content-Type:application/json
 
-{
-   
-    "description" : "is it ok",
-    "completed":"false"
+
     
-}
+    
+
 
 ###
 
-PUT http://localhost:3000/tasks/1
+PUT http://localhost:3000/tasks/10
 Content-Type: application/json
 
 {
-    "id" : 1,
-    "description" : "Hello man",
-    "completed" : "True"
+    "id" : 10,
+    "completed" : true
 }
+
+###
+DELETE http://localhost:3000/tasks/1
+
+###
+POST http://localhost:3000/upload-pdf
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="pdf"; filename="sample.pdf"
+Content-Type: application/pdf
+
+< C:\Users\tsn90\OneDrive\Documents
+--boundary--

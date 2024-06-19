@@ -5,8 +5,7 @@ const path = require("path");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const multer = require("multer"); // Import multer
-
+const multer = require("multer");
 // Load environment variables from .env file
 dotenv.config();
 
@@ -16,20 +15,8 @@ const dbPath = path.join(__dirname, "todos.db");
 
 app.use(cors());
 app.use(bodyParser.json());
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Multer storage configuration
-const uploadDir = path.join(__dirname, "uploads");
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname); // Use original filename; adjust as needed
-  },
-});
-const upload = multer({ storage: storage });
-
-// Initialize the database and server
 const initializeDBAndServer = async () => {
   try {
     const db = await open({
@@ -42,6 +29,13 @@ const initializeDBAndServer = async () => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description TEXT NOT NULL,
         completed BOOLEAN NOT NULL DEFAULT 1
+      );
+    `);
+
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS pdfs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pdf BLOB
       );
     `);
 
@@ -67,16 +61,25 @@ const initializeDBAndServer = async () => {
     });
 
     app.post("/tasks", async (req, res) => {
-      const { description } = req.body;
+      const { description, completed } = req.body;
+
+      // Validate that 'description' and 'completed' are provided
+      if (description === undefined || completed === undefined) {
+        return res
+          .status(400)
+          .json({ error: "Description and completed are required" });
+      }
+
       try {
         const result = await req.db.run(
-          "INSERT INTO tasks (description) VALUES (?)",
-          [description]
+          "INSERT INTO tasks (description, completed) VALUES (?, ?)",
+          [description, completed ? 1 : 0]
         );
+
         const newTask = await req.db.get("SELECT * FROM tasks WHERE id = ?", [
           result.lastID,
         ]);
-        res.json(newTask);
+        res.status(201).json(newTask);
       } catch (err) {
         console.error(err.message);
         res.status(500).send("Server Error");
@@ -109,30 +112,24 @@ const initializeDBAndServer = async () => {
         res.status(500).send("Server Error");
       }
     });
-
-    // Route to handle file upload
-    app.post("/upload", upload.single("pdf"), (req, res) => {
-      res.send("File uploaded successfully.");
-    });
   } catch (e) {
     console.error(`DB Error: ${e.message}`);
     process.exit(1);
   }
+
+  app.post("/upload-pdf", upload.single("pdf"), async (req, res) => {
+    const pdfBuffer = req.file.buffer;
+
+    try {
+      const result = await req.db.run("INSERT INTO pdfs (pdf) VALUES (?)", [
+        pdfBuffer,
+      ]);
+      res.status(201).json({ id: result.lastID });
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).send("Server Error");
+    }
+  });
 };
-
-app.get("/download/:filename", (req, res) => {
-  const { filename } = req.params;
-  const filePath = path.join(uploadDir, filename);
-
-  // Check if the file exists
-  if (fs.existsSync(filePath)) {
-    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
-    res.setHeader("Content-Type", "application/pdf");
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
-  } else {
-    res.status(404).send("File not found");
-  }
-});
 
 initializeDBAndServer();
